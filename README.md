@@ -11,45 +11,62 @@ fowl -o /tmp/out.iso https://example.com/image.iso
 large-file.tar.gz  [=========>    ] 234 MB / 512 MB  45.2 MB/s  ETA 6s
 ```
 
-## How it works
-
-`fowl` embeds a static [aria2c](https://aria2.github.io/) binary inside the compiled executable. At runtime it extracts the binary to a temporary directory, starts it with RPC enabled, and drives it via JSON-RPC while displaying a progress bar. The final binary is self-contained — no system dependencies required.
-
-- **16 connections / 16 splits** per download
-- **Resumes** interrupted downloads automatically (`--continue=true`)
-- **64 MB disk cache** to reduce write amplification on SSDs
-- **Ctrl-C** cleanly shuts down aria2c
-
-## Requirements
-
-- Linux x86\_64
-- Internet access at build time (to download the aria2c static binary)
-- Rust / Cargo (install script handles this automatically)
-
 ## Install
 
 ```bash
-git clone https://github.com/your-username/fowl
-cd fowl
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/stackwill/fowl/main/install.sh | bash
 ```
 
-`install.sh` will:
-1. Install `rustup` if `cargo` is not found
-2. Build in release mode (downloads aria2c on first build, ~30s)
-3. Install to `/usr/local/bin/fowl` (or `~/.local/bin/fowl` if sudo is unavailable)
+Requires Linux x86\_64. Installs to `/usr/local/bin/fowl` (or `~/.local/bin/fowl` if sudo is unavailable).
 
 ## Uninstall
 
 ```bash
-bash uninstall.sh
+curl -fsSL https://raw.githubusercontent.com/stackwill/fowl/main/uninstall.sh | bash
 ```
 
-## Manual build
+## Usage
+
+```
+fowl <URL> [-o <output-path>]
+```
+
+| Example | Description |
+|---------|-------------|
+| `fowl https://example.com/file.zip` | Download to current directory |
+| `fowl -o /tmp/file.zip https://example.com/file.zip` | Download to specific path |
+
+Interrupted downloads resume automatically on re-run.
+
+## How it works
+
+`fowl` embeds a static [aria2c](https://aria2.github.io/) binary inside the executable — no system dependencies required. At runtime it extracts it to a temp directory, starts it with RPC enabled, and drives it via JSON-RPC while displaying a live progress bar.
+
+- **16 connections / 16 splits** per server
+- **64 MB disk cache** to reduce SSD write amplification
+- **Resumes** interrupted downloads automatically
+- **Ctrl-C** cleanly shuts down aria2c
+
+## Build from source
+
+Requires Rust and a C toolchain (`gcc` / `cc`).
+
+```bash
+git clone https://github.com/stackwill/fowl
+cd fowl
+cargo build --release
+# binary at target/release/fowl
+```
+
+First build downloads a static aria2c binary (~4 MB) and embeds it. Subsequent builds use the cached copy.
+
+## Releasing a new binary
+
+Build on a Linux x86\_64 machine, then upload `target/release/fowl` as a release asset named `fowl`:
 
 ```bash
 cargo build --release
-./target/release/fowl --help
+gh release create v0.1.0 target/release/fowl --title "v0.1.0"
 ```
 
 ## License

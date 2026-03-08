@@ -1,36 +1,48 @@
 #!/usr/bin/env bash
 set -e
 
-# Ensure rustup/cargo is available
-if ! command -v cargo &>/dev/null; then
-    echo "cargo not found — installing rustup..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
-    source "$HOME/.cargo/env"
+REPO="stackwill/fowl"
+BIN_NAME="fowl"
+
+# Detect install destination
+if [ -w /usr/local/bin ]; then
+    INSTALL_DIR="/usr/local/bin"
+elif sudo -n true 2>/dev/null; then
+    INSTALL_DIR="/usr/local/bin"
+    USE_SUDO=1
+else
+    INSTALL_DIR="$HOME/.local/bin"
+    mkdir -p "$INSTALL_DIR"
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/$BIN_NAME"
 
-echo "Building fowl (this may take a minute on first run while aria2c is downloaded)..."
-cargo build --release
-
-BIN="$SCRIPT_DIR/target/release/fowl"
-
-# Try system-wide install, fall back to user local
-if sudo cp "$BIN" /usr/local/bin/fowl 2>/dev/null; then
-    echo "Installed to /usr/local/bin/fowl"
+echo "Downloading fowl..."
+if command -v curl &>/dev/null; then
+    curl -fsSL "$DOWNLOAD_URL" -o "/tmp/$BIN_NAME"
+elif command -v wget &>/dev/null; then
+    wget -qO "/tmp/$BIN_NAME" "$DOWNLOAD_URL"
 else
-    LOCAL_BIN="$HOME/.local/bin"
-    mkdir -p "$LOCAL_BIN"
-    cp "$BIN" "$LOCAL_BIN/fowl"
-    echo "Installed to $LOCAL_BIN/fowl"
-    # Hint if not in PATH
-    if ! echo "$PATH" | tr ':' '\n' | grep -qx "$LOCAL_BIN"; then
-        echo ""
-        echo "Note: $LOCAL_BIN is not in your PATH."
-        echo "Add this to your shell profile:"
-        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
-    fi
+    echo "Error: curl or wget required" >&2
+    exit 1
+fi
+
+chmod +x "/tmp/$BIN_NAME"
+
+if [ "${USE_SUDO:-0}" = "1" ]; then
+    sudo mv "/tmp/$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
+else
+    mv "/tmp/$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
+fi
+
+echo "Installed to $INSTALL_DIR/$BIN_NAME"
+
+# Hint if install dir is not in PATH
+if ! echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_DIR"; then
+    echo ""
+    echo "Note: $INSTALL_DIR is not in your PATH."
+    echo "Add this to your shell profile:"
+    echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
 fi
 
 echo ""
